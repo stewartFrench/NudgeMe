@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  TickTick_1
+//  NudgeMe
 //
 //  Created by Stewart French on 2/12/26.
 //

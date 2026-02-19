@@ -1,13 +1,13 @@
 //
-//  TickTick_1UITests.swift
-//  TickTick_1UITests
+//  NudgeMeUITests.swift
+//  NudgeMeUITests
 //
 //  Created by Stewart French on 2/12/26.
 //
 
 import XCTest
 
-final class TickTick_1UITests: XCTestCase {
+final class NudgeMeUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

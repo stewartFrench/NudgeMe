@@ -1,13 +1,13 @@
 //
-//  TickTick_1UITestsLaunchTests.swift
-//  TickTick_1UITests
+//  NudgeMeUITestsLaunchTests.swift
+//  NudgeMeUITests
 //
 //  Created by Stewart French on 2/12/26.
 //
 
 import XCTest
 
-final class TickTick_1UITestsLaunchTests: XCTestCase {
+final class NudgeMeUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
