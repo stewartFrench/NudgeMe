@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		719522762F4D032E00449AA7 /* CustomSoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 719522752F4D032E00449AA7 /* CustomSoundManager.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		711CD6692F3E779300273D4F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		711CD65B2F3E779200273D4F /* NudgeMe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NudgeMe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		711CD6682F3E779300273D4F /* NudgeMeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NudgeMeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		711CD6722F3E779300273D4F /* NudgeMeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NudgeMeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		719522752F4D032E00449AA7 /* CustomSoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomSoundManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -79,6 +84,7 @@
 				711CD66B2F3E779300273D4F /* NudgeMeTests */,
 				711CD6752F3E779300273D4F /* NudgeMeUITests */,
 				711CD65C2F3E779200273D4F /* Products */,
+				719522752F4D032E00449AA7 /* CustomSoundManager.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -236,6 +242,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				719522762F4D032E00449AA7 /* CustomSoundManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

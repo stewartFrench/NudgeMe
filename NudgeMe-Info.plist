@@ -7,5 +7,43 @@
 		<string>audio</string>
 		<string>processing</string>
 	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio File</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.mp3</string>
+				<string>public.mpeg-4-audio</string>
+				<string>com.apple.coreaudio-format</string>
+				<string>public.aifc-audio</string>
+				<string>public.aiff-audio</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Core Audio Format</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.apple.coreaudio-format</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>caf</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

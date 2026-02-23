@@ -45,25 +45,34 @@ struct SoundFile: Identifiable, Hashable
   let id: String  // Use filename as ID
   let name: String  // Display name (filename without extension)
   let fileName: String  // Full filename with extension
+  let isCustom: Bool  // True if imported by user, false if built-in
   
   init(
-    fileName: String
+    fileName: String,
+    isCustom: Bool = false
   )
   {
     self.fileName = fileName
+    self.isCustom = isCustom
     self.id = fileName
     // Remove extension for display name
-    self.name = (fileName as NSString).deletingPathExtension
+    var displayName = (fileName as NSString).deletingPathExtension
+    // Add custom indicator
+    if isCustom
+    {
+      displayName = "📁 \(displayName)"
+    } // if
+    self.name = displayName
   } // init
 } // struct SoundFile
 
-// Load all sound files from the bundle
+// Load all sound files from the bundle and custom sounds
 // Note: Xcode copies files from Sounds folder to the bundle root
 func loadAvailableSounds() -> [SoundFile]
 {
   var sounds: [SoundFile] = []
   
-  // Get all resources from the bundle
+  // 1. Get built-in sounds from the bundle
   if let resourcePath = Bundle.main.resourcePath
   {
     do
@@ -77,7 +86,7 @@ func loadAvailableSounds() -> [SoundFile]
         let ext = (file as NSString).pathExtension.lowercased()
         if audioExtensions.contains(ext)
         {
-          sounds.append(SoundFile(fileName: file))
+          sounds.append(SoundFile(fileName: file, isCustom: false))
         } // if
       } // for
     } // do
@@ -87,13 +96,25 @@ func loadAvailableSounds() -> [SoundFile]
     } // catch
   } // if
   
-  // Sort by name
-  sounds.sort { $0.name < $1.name }
+  // 2. Get custom sounds from Documents directory
+  let customSounds = CustomSoundManager.shared.getCustomSounds()
+  sounds.append(contentsOf: customSounds)
+  
+  // Sort by name (built-in first, then custom)
+  sounds.sort
+  { sound1, sound2 in
+    // Built-in sounds come before custom sounds
+    if sound1.isCustom != sound2.isCustom
+    {
+      return !sound1.isCustom
+    } // if
+    return sound1.name < sound2.name
+  } // sort
   
   // Add a default sound if no sounds found
   if sounds.isEmpty
   {
-    sounds.append(SoundFile(fileName: "default"))
+    sounds.append(SoundFile(fileName: "default", isCustom: false))
   } // if
   
   return sounds

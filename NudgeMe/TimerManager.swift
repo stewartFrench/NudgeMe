@@ -313,11 +313,22 @@ class TimerManager: ObservableObject
     // Get or create the audio player for this timer
     if timerAudioPlayers[timer.id] == nil
     {
-      // Create a new player for this timer
-      if let soundURL = Bundle.main.url(
-        forResource  : (timer.soundFileName as NSString).deletingPathExtension,
-        withExtension: (timer.soundFileName as NSString).pathExtension
+      // First try custom sounds directory
+      var soundURL: URL? = CustomSoundManager.shared.getCustomSoundURL(
+        fileName: timer.soundFileName
       )
+      
+      // If not found in custom sounds, try bundle
+      if soundURL == nil
+      {
+        soundURL = Bundle.main.url(
+          forResource  : (timer.soundFileName as NSString).deletingPathExtension,
+          withExtension: (timer.soundFileName as NSString).pathExtension
+        )
+      } // if
+      
+      // Create a new player for this timer
+      if let soundURL = soundURL
       {
         do
         {
