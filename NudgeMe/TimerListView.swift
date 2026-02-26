@@ -8,6 +8,8 @@
 import SwiftUI
 import Combine
 
+// ----------------------------------------------
+
 struct TimerListView: View
 {
   @StateObject private var timerManager = TimerManager()
@@ -67,6 +69,9 @@ struct TimerListView: View
     } // NavigationStack
   } // var body
   
+
+  // -----------
+
   private func deleteTimers(at offsets: IndexSet)
   {
     for index in offsets
@@ -76,6 +81,9 @@ struct TimerListView: View
   } // func deleteTimers
 } // struct TimerListView
 
+
+
+// ----------------------------------------------
 struct TimerRow: View
 {
   let timer: IntervalTimer
@@ -166,6 +174,8 @@ struct TimerRow: View
     } // onReceive
   } // var body
   
+
+  // -----------
   private func formatInterval(_ seconds: TimeInterval) -> String
   {
     let hours = Int(seconds) / 3600
@@ -189,6 +199,8 @@ struct TimerRow: View
     return "Every " + parts.joined(separator: " ")
   } // func formatInterval
   
+
+  // -----------
   private func formatNextOccurrence(_ date: Date) -> String
   {
     let formatter = DateFormatter()

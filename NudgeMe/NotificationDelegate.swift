@@ -13,35 +13,29 @@ import AudioToolbox
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate
 {
   
-  // This is called when a notification is delivered while the app is in the foreground
+  // This is called when a notification is delivered while the app is running
+  // (foreground or background with audio playing)
   func userNotificationCenter(
     _ center                : UNUserNotificationCenter,
-    willPresent notification: UNNotification,
-    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-  )
+    willPresent notification: UNNotification
+  ) async -> UNNotificationPresentationOptions
   {
-    print("Notification received in foreground: \(notification.request.identifier)")
-    
-    // Don't play the sound here - the active timer handles it when in foreground
-    // This prevents duplicate sounds
-    
-    // Don't show anything - the active timer is handling everything in foreground
-    completionHandler([])
+    // Don't show or play anything - the Foundation Timer handles all sounds
+    // when the app is running (foreground or background)
+    // Notifications only play when app is fully suspended
+    return []
   } // func userNotificationCenter
   
   // This is called when the user interacts with a notification
   func userNotificationCenter(
-    _ center             : UNUserNotificationCenter,
-    didReceive response  : UNNotificationResponse,
-    withCompletionHandler completionHandler: @escaping () -> Void
-  )
+    _ center            : UNUserNotificationCenter,
+    didReceive response : UNNotificationResponse
+  ) async
   {
     print("User interacted with notification: \(response.notification.request.identifier)")
     
     // Play the sound when user taps notification
     playSound(from: response.notification)
-    
-    completionHandler()
   } // func userNotificationCenter
   
   // Extract and play the sound for a timer

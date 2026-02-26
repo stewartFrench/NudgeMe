@@ -3,11 +3,12 @@
 **Project**: NudgeMe (formerly TickTick_1)  
 **Date Created**: 2026-02-12  
 **Author**: Stewart French with Claude Sonnet 4.5  
-**Last Updated**: 2026-02-23
+**Last Updated**: 2026-02-24
 
----
+----------------------------------------------
 
 ## Table of Contents
+
 1. [Project Overview](#project-overview)
 2. [Architecture](#architecture)
 3. [Data Models](#data-models)
@@ -21,13 +22,14 @@
 11. [Known Limitations](#known-limitations)
 12. [Development History](#development-history)
 
----
+----------------------------------------------
 
 ## Project Overview
 
 ### Purpose
 NudgeMe is a mindfulness and productivity iPhone application that helps users stay aware of how they spend their time by providing periodic audio reminders at customizable intervals.
 
+--------
 ### Core Functionality
 - Create multiple independent interval timers
 - Customize each timer with:
@@ -41,47 +43,58 @@ NudgeMe is a mindfulness and productivity iPhone application that helps users st
 - Continue ticking in background and when device is locked
 - Display next occurrence time for each active timer
 
+--------
 ### Name Origin
+
 The application was renamed from "TickTick_1" to "NudgeMe" to better reflect its purpose as a gentle reminder system that nudges users to be mindful of their time usage.
 
 ---
 
 ## Architecture
 
+--------
 ### High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        NudgeMeApp                            │
-│                    (Application Entry)                       │
+│                        NudgeMeApp                           │
+│                    (Application Entry)                      │
 └────────────────────┬────────────────────────────────────────┘
                      │
-         ┌───────────┴──────────┬──────────────────┐
-         │                      │                  │
-┌────────▼────────┐  ┌──────────▼──────┐  ┌──────▼─────────┐
-│  TimerManager   │  │ ContentView     │  │ Notification   │
-│  (@MainActor)   │  │ (UI Router)     │  │ Delegate       │
-└────────┬────────┘  └─────────────────┘  └────────────────┘
-         │
-         │
-         ├─────────────────┬──────────────────┬───────────────┐
-         │                 │                  │               │
-┌────────▼────────┐ ┌──────▼──────┐  ┌───────▼──────┐ ┌─────▼────────┐
-│ IntervalTimer   │ │ TimerList   │  │ TimerEdit    │ │ SoundFile    │
-│ (Data Model)    │ │ View        │  │ View         │ │ Generator    │
-└─────────────────┘ └─────────────┘  └──────────────┘ └──────────────┘
+         ┌───────────┴──────────┬────────────────┬──────────────┐
+         │                      │                │              │
+┌────────▼────────┐  ┌──────────▼──────┐  ┌──────▼─────────┐ ┌──▼──────────┐
+│  TimerManager   │  │ ContentHostView │  │ Notification   │ │   Import    │
+│  (@MainActor)   │  │ (Alert Host)    │  │ Delegate       │ │   Manager   │
+└────────┬────────┘  └──────────┬──────┘  └────────────────┘ └─────────────┘
+         │                      │
+         │                      │
+         ├──────────────────────┼─────────────────┬────────────┐
+         │                      │                 │            │
+┌────────▼────────┐  ┌──────────▼──────┐  ┌───────▼──────┐ ┌───▼──────────┐
+│ IntervalTimer   │  │ TimerList       │  │ TimerEdit    │ │   Custom     │
+│ (Data Model)    │  │ View            │  │ View         │ │   Sound      │
+└─────────────────┘  └─────────────────┘  └──────┬───────┘ │   Manager    │
+                                                 │         └──────────────┘
+                                         ┌───────▼-────────┐
+                                         │ ManageCustom    │
+                                         │ Sounds View     │
+                                         └─────────────────┘
 ```
 
+--------
 ### Design Pattern
 The application follows the MVVM (Model-View-ViewModel) pattern with SwiftUI:
-- **Model**: `IntervalTimer` (Codable struct)
-- **ViewModel**: `TimerManager` (ObservableObject)
-- **View**: SwiftUI views (`TimerListView`, `TimerEditView`, `ContentView`)
+- **Model**: `IntervalTimer` (Codable struct), `SoundFile` (struct)
+- **ViewModel**: `TimerManager` (ObservableObject), `ImportManager` (ObservableObject), `CustomSoundManager` (singleton)
+- **View**: SwiftUI views (`TimerListView`, `TimerEditView`, `ManageCustomSoundsView`, `ContentHostView`)
 
 ---
 
+----------------------------------------------
 ## Data Models
 
+--------
 ### IntervalTimer
 
 Located in: `NudgeMe/TimerModel.swift`
@@ -115,8 +128,10 @@ struct IntervalTimer: Identifiable, Codable
 
 ---
 
+----------------------------------------------
 ## Core Components
 
+--------
 ### TimerManager
 
 Located in: `NudgeMe/TimerManager.swift`
@@ -156,49 +171,57 @@ private var activeTimers: [UUID: Timer] = [:]
 
 ---
 
-### SoundFileGenerator
+--------
+### Built-In Sound Files
 
-Located in: `NudgeMe/SoundFileGenerator.swift`
+Located in: `NudgeMe/Sounds/` directory (bundled with app)
 
-**Role**: Generates custom audio files programmatically on first launch.
+**Role**: Pre-generated high-quality audio files that ship with the application.
 
-**Generated Sounds**:
-1. **Marimba_Bb1.caf** - Deep marimba tone (220 Hz, B♭2)
-2. **Marimba_Bb2.caf** - Mid marimba tone (440 Hz, B♭3)
-3. **Marimba_Bb3.caf** - High marimba tone (880 Hz, B♭4)
-4. **Xylo_Bb4.caf** - High xylophone tone (1760 Hz, B♭5)
-5. **Xylo_Bb5.caf** - Very high xylophone tone (3520 Hz, B♭6)
-6. **SLF_Hey.caf** - Compound tone (1000 Hz + 1200 Hz)
-7. **SLF_Change.caf** - Compound tone (800 Hz + 1000 Hz)
+**Available Sounds** (20 total):
+1. **Marimba_Bb1.caf** - Deep marimba tone
+2. **Marimba_Bb2.caf** - Mid marimba tone
+3. **Marimba_Bb3.caf** - High marimba tone
+4. **Xylo_Bb4.caf** - High xylophone tone
+5. **Xylo_Bb5.caf** - Very high xylophone tone
+6. **SLF_Hey.caf** - Custom compound tone
+7. **SLF_Change.caf** - Custom compound tone
+8. **TongueDrum_3.1.caf** - Tongue drum low
+9. **TongueDrum_4.caf** - Tongue drum mid-low
+10. **TongueDrum_5.caf** - Tongue drum mid
+11. **TongueDrum_5.1.caf** - Tongue drum mid-high
+12. **Vibraphone.caf** - Vibraphone tone
+13. **Music_Box.caf** - Music box chime
+14. **Absolute_Zero.caf** - Custom tone
+15. **Boxy_Room_Pluck.caf** - Plucked string
+16. **Mini_Marimba.caf** - Small marimba
+17. **Pensive_Pluck.caf** - Mellow pluck
+18. **Silicon_Pluck.caf** - Synthetic pluck
+19. **Sweet_Luck_Chime.caf** - Bell chime
 
 **Technical Details**:
-- Uses AVFoundation's `AVAudioFile` and `AVAudioPCMBuffer`
-- Generates 0.3-second audio clips
-- Format: CAF (Core Audio Format)
-- Sample rate: 44100 Hz
-- Channels: Mono
-- Waveform: Sine wave with exponential decay envelope
+- All files are in CAF (Core Audio Format)
+- Pre-generated and bundled with app (no runtime generation)
+- Optimized for iOS notification sounds
+- Loaded directly from app bundle
+- App developer can easily add CAF files by putting them in the Sounds folder.
+  No other changes are required.
 
-**Generation Process**:
-```swift
-// 1. Check if files already generated
-let soundFilesGenerated = userDefaults.bool(forKey: "soundFilesGenerated")
+**Sound Selection**:
 
-// 2. Generate all sound files on first launch
-if !soundFilesGenerated {
-  SoundFileGenerator.generateAllSoundFiles()
-  userDefaults.set(true, forKey: "soundFilesGenerated")
-}
-```
+Users can choose from these built-in sounds or import their own custom audio files via the CustomSoundManager.
 
 ---
 
+----------------------------------------------
 ## Audio System
 
+--------
 ### Foreground Audio Playback
 
 **Implementation**:
 ```swift
+
 private func playSoundForTimer(_ timer: IntervalTimer)
 {
   // Get or create the audio player for this timer
@@ -222,12 +245,14 @@ private func playSoundForTimer(_ timer: IntervalTimer)
 - Volume control per timer
 - Optimized for rapid repeated playback
 
+--------
 ### Background Audio Strategy
 
 **Problem**: iOS suspends apps in background, preventing timer execution.
 
 **Solution**: Silent audio loop keeps app active
 ```swift
+
 private func setupBackgroundAudio()
 {
   // Configure audio session for background playback
@@ -247,6 +272,7 @@ private func setupBackgroundAudio()
 
 **Activation Logic**:
 ```swift
+
 private func updateSilentAudioState()
 {
   let hasRunningTimers = timers.contains { $0.isRunning }
@@ -267,12 +293,15 @@ private func updateSilentAudioState()
 
 ---
 
+----------------------------------------------
 ## Custom Sound Management
 
+--------
 ### Overview
 
 NudgeMe allows users to import their own audio files to use as timer sounds, in addition to the built-in generated sounds. This feature enables personalization with recordings from Voice Memos, downloaded sound effects, or any audio file.
 
+--------
 ### CustomSoundManager
 
 Located in: `NudgeMe/CustomSoundManager.swift`
@@ -280,6 +309,7 @@ Located in: `NudgeMe/CustomSoundManager.swift`
 **Role**: Manages the lifecycle of user-imported audio files.
 
 **Key Responsibilities**:
+
 1. Import audio files from external sources
 2. Convert audio to CAF format for iOS notification compatibility
 3. Store custom sounds in app's Documents directory
@@ -289,11 +319,13 @@ Located in: `NudgeMe/CustomSoundManager.swift`
 
 **Storage Location**:
 ```swift
+
 Documents/CustomSounds/
 ```
 
 Custom sounds are stored in the app's Documents directory under a `CustomSounds` subdirectory, separate from the built-in sounds in the app bundle.
 
+--------
 ### Import Process
 
 **Supported Formats**:
@@ -306,6 +338,7 @@ Custom sounds are stored in the app's Documents directory under a `CustomSounds`
 **Import Workflow**:
 
 ```swift
+
 func importSound(from sourceURL: URL) -> Result<String, Error>
 {
   // 1. Access security-scoped resource
@@ -349,12 +382,14 @@ private func convertToCAF(sourceURL: URL, destinationURL: URL) throws
 ```
 
 **Why CAF Format?**
+
 - Native iOS audio format
 - Required for local notification sounds
 - Supports all audio codecs
 - Efficient for short audio clips
 - No quality loss during conversion
 
+--------
 ### Duplicate Handling
 
 When importing a file with a name that already exists, the system automatically adds a numeric suffix:
@@ -365,12 +400,14 @@ Recording_1.caf    (first duplicate)
 Recording_2.caf    (second duplicate)
 ```
 
+--------
 ### User Interface Integration
 
 #### Import Methods
 
 **1. File Picker (Primary Method)**
 ```swift
+
 .fileImporter(
   isPresented: $showingFilePicker,
   allowedContentTypes: [.audio],
@@ -379,11 +416,13 @@ Recording_2.caf    (second duplicate)
 ```
 
 Users can:
+
 - Browse to any accessible audio file
 - Import from Files app, iCloud Drive, or Downloads
 - Get immediate feedback on success/failure
 
 **Workflow for Voice Memos**:
+
 1. Open Voice Memos app
 2. Select a recording
 3. Tap Share → "Save to Files"
@@ -416,11 +455,13 @@ Info.plist configuration:
 </array>
 ```
 
+--------
 ### Manage Custom Sounds View
 
 Located in: `NudgeMe/TimerEditView.swift` (ManageCustomSoundsView struct)
 
 **Features**:
+
 - List all imported custom sounds
 - Delete individual sounds
 - Automatically refresh sound list after deletion
@@ -439,6 +480,7 @@ Located in: `NudgeMe/TimerEditView.swift` (ManageCustomSoundsView struct)
 
 **Delete Operation**:
 ```swift
+
 private func deleteSound(_ sound: SoundFile)
 {
   try CustomSoundManager.shared.deleteCustomSound(fileName: sound.fileName)
@@ -447,6 +489,7 @@ private func deleteSound(_ sound: SoundFile)
 }
 ```
 
+--------
 ### Sound File Display
 
 **Built-in vs Custom Distinction**:
@@ -462,14 +505,17 @@ struct SoundFile: Identifiable, Hashable
 ```
 
 **Display Format**:
+
 - Built-in sounds: "Marimba Bb3"
 - Custom sounds: "📁 My Recording"
 
+--------
 ### Loading All Sounds
 
 The `loadAvailableSounds()` function combines both built-in and custom sounds:
 
 ```swift
+
 func loadAvailableSounds() -> [SoundFile]
 {
   var sounds: [SoundFile] = []
@@ -492,6 +538,7 @@ func loadAvailableSounds() -> [SoundFile]
 }
 ```
 
+--------
 ### Playback Integration
 
 **TimerManager Integration**:
@@ -499,6 +546,7 @@ func loadAvailableSounds() -> [SoundFile]
 When playing a timer sound, the system checks both locations:
 
 ```swift
+
 private func playSoundForTimer(_ timer: IntervalTimer)
 {
   // First try custom sounds directory
@@ -522,10 +570,12 @@ private func playSoundForTimer(_ timer: IntervalTimer)
 
 This seamless integration allows custom and built-in sounds to be used interchangeably without any special handling in the timer logic.
 
+--------
 ### Error Handling
 
 **Custom Sound Errors**:
 ```swift
+
 enum CustomSoundError: LocalizedError
 {
   case unsupportedFormat
@@ -545,13 +595,16 @@ enum CustomSoundError: LocalizedError
 }
 ```
 
+--------
 ### Security Considerations
 
 **Sandboxing**:
+
 - Custom sounds stored within app's sandbox
 - Files cannot be accessed by other apps
 - Security-scoped resources properly managed:
   ```swift
+
   let accessed = sourceURL.startAccessingSecurityScopedResource()
   defer {
     if accessed {
@@ -561,23 +614,28 @@ enum CustomSoundError: LocalizedError
   ```
 
 **Permissions**:
+
 - No special permissions required for file import
 - Uses standard iOS file picker (user explicitly grants access)
 - Documents directory access is automatic for the app
 
+--------
 ### Performance Considerations
 
 **Import Performance**:
+
 - Conversion happens synchronously during import
 - Typical Voice Memo (30 seconds): ~0.5 seconds conversion time
 - Longer files may cause brief UI pause
 - Future improvement: async conversion with progress indicator
 
 **Storage**:
+
 - CAF files are typically smaller than M4A for short clips
 - No arbitrary size limit (respects iOS app storage limits)
 - Users responsible for managing storage via delete functionality
 
+--------
 ### Future Enhancements
 
 Potential improvements for custom sound management:
@@ -593,22 +651,28 @@ Potential improvements for custom sound management:
 
 ---
 
+----------------------------------------------
 ## Notification System
 
+--------
 ### Local Notifications
 
 **Purpose**: Provide audio alerts when app is in background or device is locked.
 
 **Implementation Architecture**:
 ```swift
+
 private let notificationCenter = UNUserNotificationCenter.current()
 ```
 
+
+--------
 ### Notification Scheduling
 
 **Strategy**: Schedule multiple notifications in advance (iOS limit: 64 pending notifications)
 
 ```swift
+
 private func scheduleNotifications(for timer: IntervalTimer)
 {
   let maxNotifications = 64
@@ -652,14 +716,17 @@ private func scheduleNotifications(for timer: IntervalTimer)
 ```
 
 **Key Design Decisions**:
+
 1. **Batch Scheduling**: Schedule up to 24 hours of notifications
 2. **Unique Identifiers**: `{timerID}-{index}` format for easy cancellation
 3. **Calendar Triggers**: More reliable than time intervals for background execution
 4. **UserInfo Metadata**: Allows foreground notification delegate to play custom sounds
 
+--------
 ### Notification Cancellation
 
 ```swift
+
 private func cancelNotifications(for timerID: UUID)
 {
   notificationCenter.getPendingNotificationRequests { requests in
@@ -674,6 +741,7 @@ private func cancelNotifications(for timerID: UUID)
 }
 ```
 
+--------
 ### NotificationDelegate
 
 Located in: `NudgeMe/NotificationDelegate.swift`
@@ -707,8 +775,10 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate
 
 ---
 
+----------------------------------------------
 ## Background Execution
 
+--------
 ### iOS Background Modes
 
 **Enabled Capabilities**:
@@ -728,6 +798,7 @@ init()
 }
 ```
 
+--------
 ### Multi-Layer Background Strategy
 
 **Layer 1: Background Audio**
@@ -748,6 +819,7 @@ init()
 - Notifications rescheduled automatically
 - **Trade-off**: Requires periodic app activation
 
+--------
 ### State Restoration
 
 ```swift
@@ -769,8 +841,10 @@ private func loadTimers()
 
 ---
 
+----------------------------------------------
 ## User Interface
 
+--------
 ### Navigation Structure
 
 ```
@@ -786,6 +860,7 @@ NudgeMeApp
     └─ NotificationDelegate (Background)
 ```
 
+--------
 ### TimerListView
 
 Located in: `NudgeMe/TimerListView.swift`
@@ -798,12 +873,12 @@ Located in: `NudgeMe/TimerListView.swift`
 │  ┌───────────────────────────────────┐  │
 │  │ Timer Name               [▶]      │  │
 │  │ Every X seconds                   │  │
-│  │ Next: 10:45:30 AM                │  │
+│  │ Next: 10:45:30 AM                 │  │
 │  └───────────────────────────────────┘  │
 │  ┌───────────────────────────────────┐  │
-│  │ Break Reminder         [⏸]       │  │
+│  │ Break Reminder         [⏸]        │  │
 │  │ Every 25 minutes                  │  │
-│  │ Next: 11:10:00 AM                │  │
+│  │ Next: 11:10:00 AM                 │  │
 │  └───────────────────────────────────┘  │
 └─────────────────────────────────────────┘
 ```
@@ -841,6 +916,7 @@ List {
 }
 ```
 
+--------
 ### TimerEditView
 
 Located in: `NudgeMe/TimerEditView.swift`
@@ -856,14 +932,14 @@ Located in: `NudgeMe/TimerEditView.swift`
 │  └───────────────────────────────────┘  │
 │                                         │
 │  Interval                               │
-│  ┌─────┐  ┌─────┐  ┌─────┐             │
-│  │  0  │  │  1  │  │ 30  │             │
-│  └─────┘  └─────┘  └─────┘             │
-│   Hours    Minutes  Seconds            │
+│  ┌─────┐  ┌─────┐  ┌─────┐              │
+│  │  0  │  │  1  │  │ 30  │              │
+│  └─────┘  └─────┘  └─────┘              │
+│   Hours    Minutes  Seconds             │
 │                                         │
 │  Sound                                  │
 │  ┌───────────────────────────────────┐  │
-│  │ Marimba Bb3              ▼       │  │
+│  │ Marimba Bb3              ▼        │  │
 │  └───────────────────────────────────┘  │
 │  [Preview Sound]                        │
 │                                         │
@@ -918,8 +994,10 @@ Button("Save") {
 
 ---
 
+----------------------------------------------
 ## Implementation Details
 
+--------
 ### Code Style Guidelines
 
 Per project requirements:
@@ -952,6 +1030,7 @@ Per project requirements:
 
 4. **Indentation**: 2 spaces (not tabs)
 
+--------
 ### Concurrency Handling
 
 **Swift Concurrency Warning Fix**:
@@ -963,6 +1042,7 @@ import AVFoundation
 
 The `@preconcurrency` attribute is used because `UserNotifications` framework hasn't been fully updated for Swift's strict concurrency checking.
 
+--------
 ### Timer Firing Mechanism
 
 **Foundation Timer → Async Task Bridge**:
@@ -984,6 +1064,7 @@ This pattern:
 3. Calls `@MainActor` function safely
 4. Weak self prevents retain cycles
 
+--------
 ### Audio Player Lifecycle
 
 **Creation**:
@@ -1003,8 +1084,10 @@ This pattern:
 
 ---
 
+----------------------------------------------
 ## Known Limitations
 
+--------
 ### Background Notification Sound Volume
 
 **Issue**: Notification sounds play at system volume when app is in background or device is locked. The app cannot control the volume of notification sounds.
@@ -1015,6 +1098,7 @@ This pattern:
 
 **User Impact**: Users must adjust system volume for background notifications, but can have per-timer volume in foreground.
 
+--------
 ### Notification Limit
 
 **Issue**: iOS limits apps to 64 pending local notifications.
@@ -1028,6 +1112,7 @@ This pattern:
 2. App reschedules notifications on next activation
 3. For typical use cases (minutes to hours), 64 notifications is sufficient
 
+--------
 ### Battery Usage
 
 **Trade-off**: Background audio playback consumes more battery than suspended state.
@@ -1039,6 +1124,7 @@ This pattern:
 
 **Alternative Considered**: Pure notification-based approach would save battery but lose custom volume control and reliable short intervals.
 
+--------
 ### System Sound Limitation (Historical)
 
 **Original Problem**: iOS system sounds (accessed via `AudioServicesPlaySystemSound`) cannot play in background.
@@ -1047,13 +1133,16 @@ This pattern:
 
 ---
 
+----------------------------------------------
 ## Development History
 
+--------
 ### Initial Requirements (2026-02-12)
 
 **User Request**:
 > I want an iPhone app that will make a short sound at a given interval. The interval should be settable by the user at the second, minute, and hourly intervals. I should be able to create several interval instances each with its own sound. The short sound should be one of the many standard iPhone sounds. I should be able to select the sound for any given interval. I should be able to create an interval instance, start it ticking, stop it ticking, and delete it. It will continue ticking even when in background or the iPhone is in standby.
 
+--------
 ### Phase 1: Basic Implementation
 - Created `IntervalTimer` model
 - Implemented `TimerManager` with Foundation `Timer`
@@ -1061,6 +1150,7 @@ This pattern:
 - Added UserDefaults persistence
 - Attempted system sound playback (later replaced)
 
+--------
 ### Phase 2: Sound Customization (2026-02-13)
 
 **User Request**:
@@ -1072,6 +1162,7 @@ This pattern:
 - Implemented programmatic sine wave synthesis
 - Added volume control per timer
 
+--------
 ### Phase 3: UI Enhancement (2026-02-13)
 
 **User Request**:
@@ -1082,6 +1173,7 @@ This pattern:
 - Updated UI to display formatted next fire time
 - Implemented date formatter for time-of-day display
 
+--------
 ### Phase 4: Background Audio (2026-02-13)
 
 **Challenge**: Timers stop firing when app enters background.
@@ -1093,6 +1185,7 @@ This pattern:
 4. Added local notification scheduling
 5. Created `NotificationDelegate` for foreground notification handling
 
+--------
 ### Phase 5: Project Renaming (2026-02-18)
 
 **User Question**:
@@ -1115,6 +1208,7 @@ This pattern:
 - Renamed classes and files accordingly
 - Updated Xcode project structure
 
+--------
 ### Phase 6: Swift Concurrency Fix (2026-02-19)
 
 **Issue**: Compiler warning about Sendable conformance in UserNotifications module.
@@ -1126,6 +1220,7 @@ warning: Add '@preconcurrency' to suppress 'Sendable'-related warnings from modu
 
 **Fix**: Added `@preconcurrency` attribute to UserNotifications import.
 
+--------
 ### Phase 7: Git and GitHub Setup (2026-02-19)
 
 **User Request**:
@@ -1144,6 +1239,7 @@ warning: Add '@preconcurrency' to suppress 'Sendable'-related warnings from modu
 > 
 > This commit renames the project and adds a complete interval timer application with custom sound notifications, background audio support, and notification handling.
 
+--------
 ### Phase 8: Custom Sound Upload (2026-02-23)
 
 **User Request**:
@@ -1196,10 +1292,46 @@ warning: Add '@preconcurrency' to suppress 'Sendable'-related warnings from modu
 **Result**:
 Users can now personalize their timers with custom recordings, downloaded sounds, or any audio file accessible through the Files app.
 
+--------
+### Phase 9: Code Cleanup (2026-02-24)
+
+**User Request**:
+> Since I created my own sounds, and now support user-defined sounds, can't I delete SoundFileGenerator and the call to generateAllSoundFiles?
+> 
+> Also, I think ContentView is no longer needed. Is that correct?
+
+**Implementation**:
+
+1. **Removed SoundFileGenerator.swift**:
+   - Deleted the entire `SoundFileGenerator` class
+   - Removed `generateSoundFilesIfNeeded()` method from `TimerManager`
+   - Removed UserDefaults check for "soundFilesGenerated"
+   - No longer generates sounds at runtime
+
+2. **Removed ContentView.swift**:
+   - Deleted unused template file (original "Hello, world!" view)
+   - App now uses `ContentHostView` → `TimerListView` directly
+
+3. **Updated Architecture**:
+   - Replaced runtime sound generation with 20 pre-generated CAF files
+   - Sounds now bundled in `NudgeMe/Sounds/` directory
+   - Cleaner initialization process in `TimerManager`
+
+**Rationale**:
+- Pre-generated sounds provide better quality and consistency
+- No need for runtime generation with CAF files in bundle
+- CustomSoundManager handles user imports separately
+- ContentView was never used in actual app flow
+
+**Result**:
+Cleaner, more maintainable codebase with only actively used files. App startup is faster without sound generation logic.
+
 ---
 
+----------------------------------------------
 ## Future Enhancement Opportunities
 
+--------
 ### Potential Features
 1. **Notification Rescheduling**: Automatically reschedule notifications when approaching the 64-notification limit
 2. **Pomodoro Presets**: Quick-start buttons for common intervals (25/5, 52/17, etc.)
@@ -1214,6 +1346,7 @@ Users can now personalize their timers with custom recordings, downloaded sounds
 11. **Sound Trimming**: Edit imported sounds (trim start/end)
 12. **iCloud Sync**: Sync custom sounds across devices
 
+--------
 ### Technical Improvements
 1. **Core Data Migration**: Replace UserDefaults with Core Data for better scalability
 2. **Combine Framework**: Use Combine publishers for reactive state management (or migrate to Swift's async/await patterns)
@@ -1221,6 +1354,7 @@ Users can now personalize their timers with custom recordings, downloaded sounds
 4. **UI Tests**: Automated UI testing for timer workflows
 5. **Accessibility**: VoiceOver support and Dynamic Type
 
+--------
 ### Performance Optimizations
 1. **Lazy Loading**: Load timer audio files on-demand rather than keeping all in memory
 2. **Background Task**: Use BGTaskScheduler for more efficient background execution
@@ -1228,6 +1362,7 @@ Users can now personalize their timers with custom recordings, downloaded sounds
 
 ---
 
+----------------------------------------------
 ## Conclusion
 
 NudgeMe successfully implements a multi-timer interval reminder system with sophisticated background execution, custom audio generation, user sound import capabilities, and a clean SwiftUI interface. The application demonstrates advanced iOS concepts including:
@@ -1246,6 +1381,42 @@ The implementation prioritizes user experience (custom sounds, volume control, n
 
 ---
 
-**Document Version**: 1.1  
-**Generated**: 2026-02-23  
+**Document Version**: 1.2  
+**Generated**: 2026-02-24  
 **Repository**: https://github.com/stewartFrench/NudgeMe
+
+----------------------------------------------
+## Project Files
+
+--------
+### Core Application Files
+- `NudgeMeApp.swift` - Application entry point with ImportManager
+- `TimerManager.swift` - Timer business logic and state management
+- `TimerModel.swift` - Data models (IntervalTimer, SoundFile)
+- `CustomSoundManager.swift` - Custom sound import and management
+
+--------
+### View Files
+- `TimerListView.swift` - Main timer list interface
+- `TimerEditView.swift` - Timer editor with sound selection
+- `ManageCustomSoundsView.swift` - Custom sound management UI (in TimerEditView.swift)
+- `ContentHostView.swift` - Alert host for import feedback (in NudgeMeApp.swift)
+
+--------
+### Supporting Files
+- `NotificationDelegate.swift` - Notification handling
+- `Assets.xcassets` - App icons and visual assets
+- `Sounds/` - 20 pre-generated CAF sound files
+
+--------
+### Documentation
+- `documents/detailed_design.md` - This document
+- `documents/SLF_notes.md` - Development notes
+
+--------
+### Removed Files (Historical)
+- ~~`SoundFileGenerator.swift`~~ - Removed 2026-02-24 (replaced with pre-generated sounds)
+- ~~`ContentView.swift`~~ - Removed 2026-02-24 (unused template)
+
+----------------------------------------------
+end

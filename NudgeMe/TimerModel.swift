@@ -8,7 +8,9 @@
 import Foundation
 import AudioToolbox
 
+// ----------------------------------------------
 // Represents a single interval timer instance
+
 struct IntervalTimer: Identifiable, Codable
 {
   let id: UUID
@@ -39,7 +41,9 @@ struct IntervalTimer: Identifiable, Codable
   } // init
 } // struct IntervalTimer
 
+// ----------------------------------------------
 // Available sound for selection
+
 struct SoundFile: Identifiable, Hashable
 {
   let id: String  // Use filename as ID
@@ -66,8 +70,11 @@ struct SoundFile: Identifiable, Hashable
   } // init
 } // struct SoundFile
 
+
+// ----------------------------------------------
 // Load all sound files from the bundle and custom sounds
 // Note: Xcode copies files from Sounds folder to the bundle root
+
 func loadAvailableSounds() -> [SoundFile]
 {
   var sounds: [SoundFile] = []

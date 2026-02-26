@@ -9,6 +9,8 @@ import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
 
+// ----------------------------------------------
+
 struct TimerEditView: View
 {
   @Environment(\.dismiss) private var dismiss
@@ -62,6 +64,8 @@ struct TimerEditView: View
     } // else
   } // init
   
+
+// ----------------------------------------------
   var body: some View
   {
     NavigationStack
@@ -221,16 +225,22 @@ struct TimerEditView: View
     } // sheet
   } // var body
   
+
+  // -----------
   private var isValid: Bool
   {
     !name.isEmpty && totalSeconds > 0
   } // var isValid
   
+
+  // -----------
   private var totalSeconds: TimeInterval
   {
     TimeInterval(hours * 3600 + minutes * 60 + seconds)
   } // var totalSeconds
   
+
+  // -----------
   private func previewSound()
   {
     // First check if it's a custom sound
@@ -271,14 +281,20 @@ struct TimerEditView: View
     } // if
   } // func previewSound
   
+
+  // -----------
   // Refresh the sound list to include newly imported sounds
+
   private func refreshSoundList()
   {
     availableSounds = loadAvailableSounds()
-    print("Refreshed sound list: \(availableSounds.count) sounds available")
+    // print("Refreshed sound list: \(availableSounds.count) sounds available")
   } // func refreshSoundList
   
+
+  // -----------
   // Handle file import from file picker
+
   private func handleFileImport(_ result: Result<[URL], Error>)
   {
     switch result
@@ -286,7 +302,7 @@ struct TimerEditView: View
       case .success(let urls):
         guard let url = urls.first else { return }
         
-        print("=== TimerEditView: File picker selected URL: \(url)")
+        // print("=== TimerEditView: File picker selected URL: \(url)")
         
         // Import the file
         let importResult = CustomSoundManager.shared.importSound(from: url)
@@ -294,21 +310,24 @@ struct TimerEditView: View
         switch importResult
         {
           case .success(let fileName):
-            print("=== TimerEditView: Successfully imported \(fileName)")
+            // print("=== TimerEditView: Successfully imported \(fileName)")
             // Refresh the sound list
             refreshSoundList()
             // Select the newly imported sound
             selectedSoundFileName = fileName
             
           case .failure(let error):
-            print("=== TimerEditView: Failed to import: \(error.localizedDescription)")
+            print("Failed to import: \(error.localizedDescription)")
         } // switch
         
       case .failure(let error):
-        print("=== TimerEditView: File picker error: \(error.localizedDescription)")
+        print("File picker error: \(error.localizedDescription)")
     } // switch
   } // func handleFileImport
   
+
+  // -----------
+
   private func saveTimer()
   {
     if let existing = timerToEdit
@@ -351,7 +370,9 @@ struct TimerEditView: View
   TimerEditView(timerManager: TimerManager())
 } // Preview
 
+// ----------------------------------------------
 // View for managing (deleting) custom sounds
+
 struct ManageCustomSoundsView: View
 {
   @Environment(\.dismiss) private var dismiss
@@ -409,12 +430,16 @@ struct ManageCustomSoundsView: View
     } // NavigationStack
   } // var body
   
+
+  // -----------
   private func loadCustomSounds()
   {
     customSounds = CustomSoundManager.shared.getCustomSounds()
-    print("Loaded \(customSounds.count) custom sounds for management")
+    // print("Loaded \(customSounds.count) custom sounds for management")
   } // func loadCustomSounds
-  
+
+
+  // -----------
   private func deleteSound(_ sound: SoundFile)
   {
     do
@@ -428,4 +453,5 @@ struct ManageCustomSoundsView: View
       print("Failed to delete sound: \(error)")
     } // catch
   } // func deleteSound
+
 } // struct ManageCustomSoundsView

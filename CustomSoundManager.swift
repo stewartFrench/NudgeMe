@@ -57,40 +57,40 @@ class CustomSoundManager
   // Import an audio file from a URL
   func importSound(from sourceURL: URL) -> Result<String, Error>
   {
-    print("=== CustomSoundManager: importSound called")
-    print("=== Source URL: \(sourceURL)")
-    print("=== Custom sounds directory: \(customSoundsDirectory.path)")
+    // print("=== CustomSoundManager: importSound called")
+    // print("=== Source URL: \(sourceURL)")
+    // print("=== Custom sounds directory: \(customSoundsDirectory.path)")
     
     do
     {
       // Start accessing the security-scoped resource
       let accessed = sourceURL.startAccessingSecurityScopedResource()
-      print("=== Security-scoped resource accessed: \(accessed)")
+      // print("=== Security-scoped resource accessed: \(accessed)")
       
       defer
       {
         if accessed
         {
           sourceURL.stopAccessingSecurityScopedResource()
-          print("=== Stopped accessing security-scoped resource")
+          // print("=== Stopped accessing security-scoped resource")
         } // if
       } // defer
       
       // Check if file exists at source
       let fileExists = FileManager.default.fileExists(atPath: sourceURL.path)
-      print("=== File exists at source: \(fileExists)")
+      // print("=== File exists at source: \(fileExists)")
       
       // Get the filename
       let originalFileName = sourceURL.lastPathComponent
       let fileExtension = sourceURL.pathExtension.lowercased()
-      print("=== Original filename: \(originalFileName)")
-      print("=== File extension: \(fileExtension)")
+      // print("=== Original filename: \(originalFileName)")
+      // print("=== File extension: \(fileExtension)")
       
       // Validate audio format
       let supportedFormats = ["caf", "m4a", "mp3", "wav", "aiff", "aifc"]
       guard supportedFormats.contains(fileExtension) else
       {
-        print("=== ERROR: Unsupported format")
+        // print("=== ERROR: Unsupported format")
         throw CustomSoundError.unsupportedFormat
       } // guard
       
@@ -98,26 +98,26 @@ class CustomSoundManager
       let baseName = (originalFileName as NSString).deletingPathExtension
       let cafFileName = "\(baseName).caf"
       let destinationURL = customSoundsDirectory.appendingPathComponent(cafFileName)
-      print("=== Base destination URL: \(destinationURL.path)")
+      // print("=== Base destination URL: \(destinationURL.path)")
       
       // If file already exists, add a number suffix
       let finalDestinationURL = makeUniqueFileName(baseURL: destinationURL)
-      print("=== Final destination URL: \(finalDestinationURL.path)")
+      // print("=== Final destination URL: \(finalDestinationURL.path)")
       
       // Convert audio file to CAF format
-      print("=== Starting conversion to CAF...")
+      // print("=== Starting conversion to CAF...")
       try convertToCAF(
         sourceURL     : sourceURL,
         destinationURL: finalDestinationURL
       )
       
-      print("=== Successfully imported sound: \(finalDestinationURL.lastPathComponent)")
+      // print("=== Successfully imported sound: \(finalDestinationURL.lastPathComponent)")
       return .success(finalDestinationURL.lastPathComponent)
     } // do
     catch
     {
-      print("=== ERROR: Failed to import sound: \(error)")
-      print("=== Error details: \(error.localizedDescription)")
+      // print("=== ERROR: Failed to import sound: \(error)")
+      // print("=== Error details: \(error.localizedDescription)")
       return .failure(error)
     } // catch
   } // func importSound
@@ -181,8 +181,8 @@ class CustomSoundManager
   // Get all custom sound files
   func getCustomSounds() -> [SoundFile]
   {
-    print("=== CustomSoundManager: getCustomSounds called")
-    print("=== Looking in directory: \(customSoundsDirectory.path)")
+    // print("=== CustomSoundManager: getCustomSounds called")
+    // print("=== Looking in directory: \(customSoundsDirectory.path)")
     
     do
     {
@@ -191,26 +191,26 @@ class CustomSoundManager
         includingPropertiesForKeys: nil
       )
       
-      print("=== Found \(files.count) total files in custom sounds directory")
+      // print("=== Found \(files.count) total files in custom sounds directory")
       
       let audioFiles = files.filter
       { url in
         let ext = url.pathExtension.lowercased()
         let isAudio = ["caf", "m4a", "mp3", "wav", "aiff", "aifc"].contains(ext)
-        if isAudio
-        {
-          print("===   Audio file: \(url.lastPathComponent)")
-        } // if
+        // if isAudio
+        // {
+        //   print("===   Audio file: \(url.lastPathComponent)")
+        // } // if
         return isAudio
       } // filter
       
-      print("=== Returning \(audioFiles.count) custom sound files")
+      // print("=== Returning \(audioFiles.count) custom sound files")
       
       return audioFiles.map { SoundFile(fileName: $0.lastPathComponent, isCustom: true) }
     } // do
     catch
     {
-      print("=== ERROR: Failed to get custom sounds: \(error)")
+      // print("=== ERROR: Failed to get custom sounds: \(error)")
       return []
     } // catch
   } // func getCustomSounds
