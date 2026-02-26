@@ -1326,6 +1326,120 @@ Users can now personalize their timers with custom recordings, downloaded sounds
 **Result**:
 Cleaner, more maintainable codebase with only actively used files. App startup is faster without sound generation logic.
 
+--------
+### Phase 10: iOS 26.0 Scene Delegate Migration (2026-02-26)
+
+**Issue**: 
+Xcode reported a deprecation warning for iOS 26.0:
+```
+'url' was deprecated in iOS 26.0: Use UIScene lifecycle and UIScene.ConnectionOptions.URLContexts instead.
+```
+
+**Root Cause**:
+The app was using the deprecated `launchOptions?[.url]` approach in `UIApplicationDelegate.didFinishLaunchingWithOptions` to handle incoming audio file URLs. This method is deprecated in favor of the UIScene lifecycle.
+
+**Implementation**:
+
+1. **Added SceneDelegate Class**:
+   - Created `SceneDelegate` conforming to `UIWindowSceneDelegate`
+   - Implemented `scene(_:willConnectTo:options:)` to handle URLs at launch
+   - Implemented `scene(_:openURLContexts:)` to handle URLs when app is running
+   - Uses modern `UIScene.ConnectionOptions.urlContexts` API
+
+2. **Scene Configuration**:
+   - Added `application(_:configurationForConnecting:options:)` to AppDelegate
+   - Returns `UISceneConfiguration` that specifies `SceneDelegate` as delegate class
+   - Properly integrates scene lifecycle with SwiftUI app using `@UIApplicationDelegateAdaptor`
+
+3. **Removed Deprecated Code**:
+   - Removed deprecated `launchOptions?[.url]` check from `didFinishLaunchingWithOptions`
+   - Removed deprecated `application(_:open:options:)` method
+   - Removed legacy `application(_:open:sourceApplication:annotation:)` method
+
+**Architecture Change**:
+```
+Before:
+┌─────────────────────────────┐
+│ UIApplicationDelegate       │
+│ - didFinishLaunchingOptions │ ← Deprecated URL handling
+│ - application:open:options: │ ← Deprecated URL handling
+└─────────────────────────────┘
+
+After:
+┌─────────────────────────────┐
+│ UIApplicationDelegate       │
+│ - configurationForConnecting│ ← Scene configuration
+└─────────────┬───────────────┘
+              │
+              ▼
+┌─────────────────────────────┐
+│ UIWindowSceneDelegate       │
+│ - willConnectTo:options:    │ ← Modern URL handling (launch)
+│ - openURLContexts:          │ ← Modern URL handling (running)
+└─────────────────────────────┘
+```
+
+**Code Structure** (NudgeMe/NudgeMeApp.swift):
+```swift
+class SceneDelegate: NSObject, UIWindowSceneDelegate
+{
+  // Handle URLs when app launches
+  func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    if let urlContext = connectionOptions.urlContexts.first {
+      AppDelegate.shared?.onURLReceived?(urlContext.url)
+    }
+  }
+  
+  // Handle URLs when app is already running
+  func scene(
+    _ scene: UIScene,
+    openURLContexts URLContexts: Set<UIOpenURLContext>
+  ) {
+    if let urlContext = URLContexts.first {
+      AppDelegate.shared?.onURLReceived?(urlContext.url)
+    }
+  }
+}
+
+class AppDelegate: NSObject, UIApplicationDelegate
+{
+  // Configure scene delegate for SwiftUI app
+  func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    let configuration = UISceneConfiguration(
+      name: nil,
+      sessionRole: connectingSceneSession.role
+    )
+    if connectingSceneSession.role == .windowApplication {
+      configuration.delegateClass = SceneDelegate.self
+    }
+    return configuration
+  }
+}
+```
+
+**Benefits**:
+- Eliminates iOS 26.0 deprecation warning
+- Uses modern UIScene lifecycle architecture
+- Future-proof implementation aligned with Apple's direction
+- Maintains backward compatibility with existing functionality
+- No changes to custom sound import workflow
+
+**Testing**:
+- Project builds successfully without warnings
+- File import functionality remains unchanged
+- Share Sheet audio file handling still works through scene delegate
+
+**Result**:
+App now uses the recommended iOS 26.0+ approach for handling incoming URLs while maintaining full compatibility with the custom sound import feature.
+
 ---
 
 ----------------------------------------------

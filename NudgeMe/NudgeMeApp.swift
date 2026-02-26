@@ -104,6 +104,40 @@ struct NudgeMeApp: App
 
 
 // ----------------------------------------------
+// Scene delegate to handle URL opening
+
+class SceneDelegate: NSObject, UIWindowSceneDelegate
+{
+  func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  )
+  {
+    // Check if launched with a URL
+    if let urlContext = connectionOptions.urlContexts.first
+    {
+      // print("=== SceneDelegate: Launched with URL: \(urlContext.url)")
+      AppDelegate.shared?.onURLReceived?(urlContext.url)
+    }
+  }
+  
+  func scene(
+    _ scene: UIScene,
+    openURLContexts URLContexts: Set<UIOpenURLContext>
+  )
+  {
+    // Handle URL when app is already running
+    if let urlContext = URLContexts.first
+    {
+      // print("=== SceneDelegate: Received URL: \(urlContext.url)")
+      AppDelegate.shared?.onURLReceived?(urlContext.url)
+    }
+  }
+}
+
+
+// ----------------------------------------------
 // App delegate to set up notification handling and URL handling
 
 class AppDelegate: NSObject, UIApplicationDelegate
@@ -115,19 +149,29 @@ class AppDelegate: NSObject, UIApplicationDelegate
   
   // -----------
   func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration
+  {
+    let configuration = UISceneConfiguration(
+      name: nil,
+      sessionRole: connectingSceneSession.role
+    )
+    if connectingSceneSession.role == .windowApplication
+    {
+      configuration.delegateClass = SceneDelegate.self
+    }
+    return configuration
+  }
+  
+  func application(
                                  _ application : UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool
   {
     // print("=== AppDelegate: didFinishLaunchingWithOptions called")
     AppDelegate.shared = self
-    
-    // Check if launched with a URL
-    if let url = launchOptions?[.url] as? URL
-    {
-      // print("=== AppDelegate: Launched with URL: \(url)")
-      onURLReceived?(url)
-    } // if
     
     // Set up notification delegate
     UNUserNotificationCenter.current().delegate = notificationDelegate
@@ -157,42 +201,6 @@ class AppDelegate: NSObject, UIApplicationDelegate
     // Cancel all pending notifications since timers won't be running
     UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
   } // func applicationWillTerminate
-  
-
-  // -----------
-  // Handle incoming URLs
-
-  func application(
-    _ app: UIApplication,
-    open url: URL,
-    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-  ) -> Bool
-  {
-    // print("=== AppDelegate: Received URL via application:open:options:")
-    // print("=== URL: \(url)")
-    // print("=== URL scheme: \(url.scheme ?? "none")")
-    // print("=== URL host: \(url.host ?? "none")")
-    // print("=== Options: \(options)")
-    onURLReceived?(url)
-    return true
-  } // func application
-  
-  // -----------
-  // Alternative method for opening documents
-
-  func application(
-    _ application: UIApplication,
-    open inputURL: URL,
-    sourceApplication: String?,
-    annotation: Any
-  ) -> Bool
-  {
-    // print("=== AppDelegate: Received URL via LEGACY application:open:sourceApplication:")
-    // print("=== URL: \(inputURL)")
-    // print("=== Source application: \(sourceApplication ?? "unknown")")
-    onURLReceived?(inputURL)
-    return true
-  } // func application
 
 } // class AppDelegate
 
