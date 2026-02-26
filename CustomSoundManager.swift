@@ -76,9 +76,6 @@ class CustomSoundManager
         } // if
       } // defer
       
-      // Check if file exists at source
-      let fileExists = FileManager.default.fileExists(atPath: sourceURL.path)
-      // print("=== File exists at source: \(fileExists)")
       
       // Get the filename
       let originalFileName = sourceURL.lastPathComponent
