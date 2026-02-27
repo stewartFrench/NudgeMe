@@ -327,51 +327,7 @@ class TimerManager: ObservableObject
   } // func stopTimer
   
 
-  // -----------
-  // Stop all running timers (called when app terminates)
 
-  func stopAllRunningTimers()
-  {
-    // Get all running timers
-    let runningTimers = timers.filter { $0.isRunning }
-    
-    // Stop each one
-    for timer in runningTimers
-    {
-      stopTimer(timer)
-    }
-  } // func stopAllRunningTimers
-  
-  
-  // -----------
-  // Stop all running timers synchronously (for app termination)
-  // This must be called from the main thread
-  
-  func stopAllRunningTimersSync()
-  {
-    // Get all running timers and mark them as stopped
-    for index in timers.indices
-    {
-      if timers[index].isRunning
-      {
-        timers[index].isRunning = false
-        timers[index].nextFireDate = nil
-      }
-    }
-    
-    // Save immediately
-    if let encoded = try? JSONEncoder().encode(timers)
-    {
-      UserDefaults.standard.set(encoded, forKey: "savedTimers")
-    }
-    
-    // Clean up audio and timers
-    activeTimers.values.forEach { $0.invalidate() }
-    activeTimers.removeAll()
-    timerAudioPlayers.values.forEach { $0.stop() }
-    timerAudioPlayers.removeAll()
-    silentPlayer?.stop()
-  } // func stopAllRunningTimersSync
   
 
   // -----------
@@ -623,12 +579,19 @@ class TimerManager: ObservableObject
     {
       timers = decoded
       
-      // Restart any running timers
-      for timer in timers where timer.isRunning
+      // Stop all running timers on app launch
+      // This ensures timers don't remain active after app termination
+      for index in timers.indices
       {
-        scheduleNotifications(for: timer)
-        startActiveTimer(for: timer)
-      } // for
+        if timers[index].isRunning
+        {
+          timers[index].isRunning = false
+          timers[index].nextFireDate = nil
+        }
+      }
+      
+      // Save the updated state
+      saveTimers()
     } // if
   } // func loadTimers
 

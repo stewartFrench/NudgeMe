@@ -198,12 +198,6 @@ class AppDelegate: NSObject, UIApplicationDelegate
   // Called when app is about to terminate
   func applicationWillTerminate(_ application: UIApplication)
   {
-    // Stop all running timers so they don't remain active on next launch
-    // Must be synchronous to ensure it completes before app terminates
-    DispatchQueue.main.sync {
-      TimerManager.shared.stopAllRunningTimersSync()
-    }
-    
     // Cancel all pending notifications since timers won't be running
     UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
   } // func applicationWillTerminate
