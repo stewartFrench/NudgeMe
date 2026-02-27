@@ -367,7 +367,7 @@ struct TimerEditView: View
 
 #Preview
 {
-  TimerEditView(timerManager: TimerManager())
+  TimerEditView(timerManager: TimerManager.shared)
 } // Preview
 
 // ----------------------------------------------

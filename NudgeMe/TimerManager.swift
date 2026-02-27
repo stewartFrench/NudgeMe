@@ -18,6 +18,8 @@ import Combine
 @MainActor
 class TimerManager: ObservableObject
 {
+  static let shared = TimerManager()
+  
   @Published var timers: [IntervalTimer] = []
   private let notificationCenter = UNUserNotificationCenter.current()
   private var activeTimers: [UUID: Timer] = [:]
@@ -26,7 +28,7 @@ class TimerManager: ObservableObject
   private var timerAudioPlayers: [UUID: AVAudioPlayer] = [:]  // Persistent players for each timer
   private var isInBackground = false
   
-  init()
+  private init()
   {
     loadTimers()
     requestNotificationPermissions()
@@ -323,6 +325,22 @@ class TimerManager: ObservableObject
     
     updateTimer(updatedTimer)
   } // func stopTimer
+  
+
+  // -----------
+  // Stop all running timers (called when app terminates)
+
+  func stopAllRunningTimers()
+  {
+    // Get all running timers
+    let runningTimers = timers.filter { $0.isRunning }
+    
+    // Stop each one
+    for timer in runningTimers
+    {
+      stopTimer(timer)
+    }
+  } // func stopAllRunningTimers
   
 
   // -----------

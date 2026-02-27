@@ -12,7 +12,7 @@ import Combine
 
 struct TimerListView: View
 {
-  @StateObject private var timerManager = TimerManager()
+  @StateObject private var timerManager = TimerManager.shared
   @State private var showingAddTimer = false
   
   var body: some View
