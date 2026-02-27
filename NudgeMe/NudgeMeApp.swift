@@ -199,8 +199,9 @@ class AppDelegate: NSObject, UIApplicationDelegate
   func applicationWillTerminate(_ application: UIApplication)
   {
     // Stop all running timers so they don't remain active on next launch
-    Task { @MainActor in
-      TimerManager.shared.stopAllRunningTimers()
+    // Must be synchronous to ensure it completes before app terminates
+    DispatchQueue.main.sync {
+      TimerManager.shared.stopAllRunningTimersSync()
     }
     
     // Cancel all pending notifications since timers won't be running

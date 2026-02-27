@@ -342,6 +342,37 @@ class TimerManager: ObservableObject
     }
   } // func stopAllRunningTimers
   
+  
+  // -----------
+  // Stop all running timers synchronously (for app termination)
+  // This must be called from the main thread
+  
+  func stopAllRunningTimersSync()
+  {
+    // Get all running timers and mark them as stopped
+    for index in timers.indices
+    {
+      if timers[index].isRunning
+      {
+        timers[index].isRunning = false
+        timers[index].nextFireDate = nil
+      }
+    }
+    
+    // Save immediately
+    if let encoded = try? JSONEncoder().encode(timers)
+    {
+      UserDefaults.standard.set(encoded, forKey: "savedTimers")
+    }
+    
+    // Clean up audio and timers
+    activeTimers.values.forEach { $0.invalidate() }
+    activeTimers.removeAll()
+    timerAudioPlayers.values.forEach { $0.stop() }
+    timerAudioPlayers.removeAll()
+    silentPlayer?.stop()
+  } // func stopAllRunningTimersSync
+  
 
   // -----------
   // Update silent audio playback based on whether any timers are running
