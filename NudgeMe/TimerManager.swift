@@ -175,6 +175,16 @@ class TimerManager: ObservableObject
 
   private func startSilentAudio()
   {
+    // Ensure audio session is active before playing
+    do
+    {
+      try audioSession.setActive(true)
+    }
+    catch
+    {
+      print("Failed to activate audio session: \(error)")
+    }
+    
     silentPlayer?.play()
   } // func startSilentAudio
   
@@ -274,11 +284,16 @@ class TimerManager: ObservableObject
     // in background with silent audio loop keeping app alive
     // scheduleNotifications(for: updatedTimer)
     
+    // Start silent audio FIRST to establish background audio session
+    // This must happen before the device goes to standby
+    updateSilentAudioState()
+    
+    // Play the sound IMMEDIATELY when starting to establish audio session
+    // This ensures iOS knows we're playing audio before device goes to standby
+    playSoundForTimer(updatedTimer)
+    
     // Start an active timer for foreground/background sound playback
     startActiveTimer(for: updatedTimer)
-    
-    // Start silent audio to keep app alive in background
-    updateSilentAudioState()
     
     updateTimer(updatedTimer)
   } // func startTimer
@@ -383,6 +398,53 @@ class TimerManager: ObservableObject
   
 
   // -----------
+  // Prepare audio player for a timer (create if doesn't exist)
+  
+  private func prepareAudioPlayer(for timer: IntervalTimer)
+  {
+    // Skip if player already exists
+    if timerAudioPlayers[timer.id] != nil
+    {
+      return
+    }
+    
+    // First try custom sounds directory
+    var soundURL: URL? = CustomSoundManager.shared.getCustomSoundURL(
+      fileName: timer.soundFileName
+    )
+    
+    // If not found in custom sounds, try bundle
+    if soundURL == nil
+    {
+      soundURL = Bundle.main.url(
+        forResource  : (timer.soundFileName as NSString).deletingPathExtension,
+        withExtension: (timer.soundFileName as NSString).pathExtension
+      )
+    } // if
+    
+    // Create a new player for this timer
+    if let soundURL = soundURL
+    {
+      do
+      {
+        let player = try AVAudioPlayer(contentsOf: soundURL)
+        player.volume = timer.volume
+        player.prepareToPlay()
+        timerAudioPlayers[timer.id] = player
+      } // do
+      catch
+      {
+        print("Failed to create audio player: \(error)")
+      } // catch
+    } // if
+    else
+    {
+      print("Sound file not found: \(timer.soundFileName)")
+    } // else
+  } // func prepareAudioPlayer
+  
+  
+  // -----------
   // Play sound for a specific timer using persistent audio player
 
   private func playSoundForTimer(_ timer: IntervalTimer)
@@ -390,41 +452,7 @@ class TimerManager: ObservableObject
     // Get or create the audio player for this timer
     if timerAudioPlayers[timer.id] == nil
     {
-      // First try custom sounds directory
-      var soundURL: URL? = CustomSoundManager.shared.getCustomSoundURL(
-        fileName: timer.soundFileName
-      )
-      
-      // If not found in custom sounds, try bundle
-      if soundURL == nil
-      {
-        soundURL = Bundle.main.url(
-          forResource  : (timer.soundFileName as NSString).deletingPathExtension,
-          withExtension: (timer.soundFileName as NSString).pathExtension
-        )
-      } // if
-      
-      // Create a new player for this timer
-      if let soundURL = soundURL
-      {
-        do
-        {
-          let player = try AVAudioPlayer(contentsOf: soundURL)
-          player.volume = timer.volume
-          player.prepareToPlay()
-          timerAudioPlayers[timer.id] = player
-        } // do
-        catch
-        {
-          print("Failed to create audio player: \(error)")
-          return
-        } // catch
-      } // if
-      else
-      {
-        print("Sound file not found: \(timer.soundFileName)")
-        return
-      } // else
+      prepareAudioPlayer(for: timer)
     } // if
     
     // Update volume in case it changed
