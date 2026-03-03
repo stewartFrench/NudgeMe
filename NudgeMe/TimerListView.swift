@@ -29,10 +29,16 @@ struct TimerListView: View
           )
         } // ForEach
         .onDelete(perform: deleteTimers)
+        .onMove(perform: moveTimers)
       } // List
       .navigationTitle("Interval Timers")
       .toolbar
       {
+        ToolbarItem(placement: .navigationBarLeading)
+        {
+          EditButton()
+        } // ToolbarItem
+        
         ToolbarItem(placement: .primaryAction)
         {
           Button
@@ -79,6 +85,14 @@ struct TimerListView: View
       timerManager.deleteTimer(timerManager.timers[index])
     } // for
   } // func deleteTimers
+  
+  
+  // -----------
+  
+  private func moveTimers(from source: IndexSet, to destination: Int)
+  {
+    timerManager.moveTimers(from: source, to: destination)
+  } // func moveTimers
 } // struct TimerListView
 
 

@@ -274,6 +274,30 @@ class TimerManager: ObservableObject
   
 
   // -----------
+  // Move timers to reorder them
+
+  func moveTimers(from source: IndexSet, to destination: Int)
+  {
+    var updatedTimers = timers
+    
+    // Extract the items to move
+    let itemsToMove = source.reversed().map { updatedTimers.remove(at: $0) }.reversed()
+    
+    // Calculate the adjusted destination index
+    let adjustedDestination = destination - source.filter { $0 < destination }.count
+    
+    // Insert items at the destination
+    for (offset, item) in itemsToMove.enumerated()
+    {
+      updatedTimers.insert(item, at: adjustedDestination + offset)
+    }
+    
+    timers = updatedTimers
+    saveTimers()
+  } // func moveTimers
+  
+
+  // -----------
   // Start a timer
 
   func startTimer(_ timer: IntervalTimer)

@@ -118,6 +118,7 @@ struct TimerEditView: View
         
         Section("Sound")
         {
+
           Picker(
             "Alert Sound",
             selection: $selectedSoundFileName
@@ -131,7 +132,12 @@ struct TimerEditView: View
               Text(sound.name).tag(sound.fileName)
             } // ForEach
           } // Picker
+          .onChange( of: selectedSoundFileName )
+          {
+            previewSound()
+          } // onChange
           
+
           Button("Import Custom Sound from Files")
           {
             showingFilePicker = true
@@ -321,7 +327,7 @@ struct TimerEditView: View
         } // switch
         
       case .failure(let error):
-        print("File picker error: \(error.localizedDescription)")
+         print("File picker error: \(error.localizedDescription)")
     } // switch
   } // func handleFileImport
   
