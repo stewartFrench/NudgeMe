@@ -23,20 +23,68 @@ class TimerManager: ObservableObject
   @Published var timers: [IntervalTimer] = []
   private let notificationCenter = UNUserNotificationCenter.current()
   private var activeTimers: [UUID: Timer] = [:]
-  private let audioSession = AVAudioSession.sharedInstance()
-  private var silentPlayer: AVAudioPlayer?
-  private var timerAudioPlayers: [UUID: AVAudioPlayer] = [:]  // Persistent players for each timer
+
+              // Persistent players for each timer -
+  private var timerAudioPlayers: [UUID: AVAudioPlayer] = [:]  
+
   private var isInBackground = false
+  private let audioSession = AVAudioSession.sharedInstance()
+  private var keepaliveTimer: Timer?
+  private var keepalivePlayer: AVAudioPlayer?
   
+
+  // -----------
   private init()
   {
     loadTimers()
     requestNotificationPermissions()
-    setupBackgroundAudio()
+    setupAudioSession()
     setupSceneObservers()
+    
+        // Cancel all pending notifications since we use background
+        // audio instead
+
+    notificationCenter.removeAllPendingNotificationRequests()
+
   } // init
   
+
+  // -----------
+  // Set up audio session for sound playback
+
+  private func setupAudioSession()
+  {
+    do
+    {
+      try audioSession.setCategory(
+        .playback,
+        mode: .default,
+        options: [.mixWithOthers]
+      )
+      
+          // Request to keep app active in background for audio
+          // This is important for longer timer intervals
+
+      try audioSession.setActive(
+        true,
+        options: [.notifyOthersOnDeactivation]
+      )
+      
+          // Set preferred buffer duration for better background
+          // performance
+
+      try audioSession.setPreferredIOBufferDuration(0.005)
+    } // do
+    catch
+    {
+      print("Failed to set audio session category: \(error)")
+    } // catch
+  } // func setupAudioSession
+  
+
+  // -----------
   // Set up observers for app state changes
+
   private func setupSceneObservers()
   {
     NotificationCenter.default.addObserver(
@@ -54,150 +102,190 @@ class TimerManager: ObservableObject
     )
   } // func setupSceneObservers
   
+
+  // -----------
   @objc private func appDidEnterBackground()
   {
     isInBackground = true
-    // print("=== App entered background at \(Date())")
-    // Keep Foundation timers AND silent audio running
-    // When app is in background with audio playing, it stays "active"
-    // and needs to handle its own alerts via Foundation timers
-    // Notifications are only used when app gets fully suspended
+
+        // Start keepalive if any timers are running
+
+    if timers.contains(where: { $0.isRunning })
+    {
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === App entered background with \(timers.filter { $0.isRunning }.count) running timers - starting keepalive")
+      startKeepalive()
+    } // if
+    else
+    {
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === App entered background with no running timers")
+    }
   } // func appDidEnterBackground
   
+
+  // -----------
   @objc private func appWillEnterForeground()
   {
     isInBackground = false
-    // print("=== App entering foreground at \(Date())")
-    // Foundation timers are already running, just update state
-    updateSilentAudioState()
+
+        // Stop keepalive when in foreground
+
+    stopKeepalive()
+
   } // func appWillEnterForeground
   
-
-  // -----------
-  // Set up audio session for background playback
-
-  private func setupBackgroundAudio()
-  {
-    do
-    {
-      try audioSession.setCategory(
-        .playback,
-        mode   : .default,
-        options: [.mixWithOthers]
-      )
-      try audioSession.setActive(true)
-      
-      // Create a silent audio buffer to keep the app alive
-      createSilentAudioPlayer()
-    } // do
-    catch
-    {
-      print("Failed to set up background audio: \(error)")
-    } // catch
-  } // func setupBackgroundAudio
   
-
   // -----------
-  // Create and start playing silent audio to keep app active in background
-
-  private func createSilentAudioPlayer()
-  {
-    // Create a 1-second silent audio file in memory
-    let silenceURL = createSilentAudioFile()
-    
-    do
-    {
-      silentPlayer = try AVAudioPlayer(contentsOf: silenceURL)
-      silentPlayer?.numberOfLoops = -1 // Loop forever
-      silentPlayer?.volume = 0.0 // Silent
-      silentPlayer?.prepareToPlay()
-    } // do
-    catch
-    {
-      print("Failed to create silent audio player: \(error)")
-    } // catch
-  } // func createSilentAudioPlayer
+  // Start keepalive audio to maintain background session
   
-
-  // -----------
-  // Create a silent audio file
-
-  private func createSilentAudioFile() -> URL
+  private func startKeepalive()
   {
-    let tempDir = FileManager.default.temporaryDirectory
-    let silenceURL = tempDir.appendingPathComponent("silence.m4a")
-    
-    // If file already exists, return it
-    if FileManager.default.fileExists(atPath: silenceURL.path)
+        // Don't restart if already running
+
+    if keepaliveTimer != nil && keepaliveTimer!.isValid
     {
-      return silenceURL
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === Keepalive already running, skipping restart")
+      return
+    }
+    
+        // Stop existing keepalive if any
+
+    stopKeepalive()
+    
+        // Create keepalive audio player if needed
+
+    if keepalivePlayer == nil
+    {
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === Creating keepalive player")
+      createKeepalivePlayer()
     } // if
     
-    // Create a 1-second silent audio file
-    let settings: [String: Any] = [
-      AVFormatIDKey             : kAudioFormatMPEG4AAC,
-      AVSampleRateKey           : 44100.0,
-      AVNumberOfChannelsKey     : 1,
-      AVEncoderAudioQualityKey  : AVAudioQuality.min.rawValue
-    ]
+    let timestamp = Date().formatted(date: .omitted, time: .standard)
+    print("[\(timestamp)] === Starting keepalive timer (1 second interval)")
+    
+        // Start a timer to play keepalive sound every 1 second
+    // Use RunLoop.main and .common mode to ensure it runs in background
+
+    keepaliveTimer = Timer.scheduledTimer(
+      withTimeInterval: 1.0,
+      repeats: true
+    )
+    { [weak self] _ in
+      guard let self = self else { return }
+      Task { @MainActor in
+        self.playKeepalive()
+      }
+    } // scheduledTimer
+    
+    RunLoop.main.add(keepaliveTimer!, forMode: .common)
+    
+        // Play immediately
+
+    playKeepalive()
+
+  } // func startKeepalive
+  
+  
+  // -----------
+  // Stop keepalive audio
+  
+  private func stopKeepalive()
+  {
+    keepaliveTimer?.invalidate()
+    keepaliveTimer = nil
+    keepalivePlayer?.stop()
+  } // func stopKeepalive
+  
+  
+  // -----------
+  // Create a very short, quiet audio player for keepalive
+  
+  private func createKeepalivePlayer()
+  {
+        // Create a very short silent audio file in memory
+
+    let format = AVAudioFormat(
+      standardFormatWithSampleRate: 44100,
+      channels: 1
+    )!
+    
+        // Create 0.01 second (10ms) of near-silent audio at very low volume
+
+    let frameCount = AVAudioFrameCount(format.sampleRate * 0.01)
+    guard let buffer = 
+       AVAudioPCMBuffer(
+          pcmFormat: format,
+      frameCapacity: frameCount
+    ) 
+    else { return }
+    
+    buffer.frameLength = frameCount
+    
+        // Fill with very low amplitude samples (barely audible)
+
+    if let samples = buffer.floatChannelData?[0]
+    {
+      for i in 0..<Int(frameCount)
+      {
+        samples[i] = 0.0001 * sin(Float(i) * 0.1) // Very quiet sine wave
+      }
+    } // if
+    
+        // Write to a temporary file
+
+    let tempURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("keepalive.caf")
     
     do
     {
-      let audioFile = try AVAudioFile(
-        forWriting : silenceURL,
-        settings   : settings
+      let file = 
+           try AVAudioFile(
+                  forWriting: tempURL,
+                    settings: format.settings,
+                commonFormat: .pcmFormatFloat32,
+                 interleaved: false
       )
+      try file.write(from: buffer)
       
-      // Create silent buffer (1 second of silence)
-      let format = AVAudioFormat(
-        standardFormatWithSampleRate: 44100.0,
-        channels                    : 1
-      )!
-      let frameCount = AVAudioFrameCount(44100)
-      let buffer = AVAudioPCMBuffer(
-        pcmFormat   : format,
-        frameCapacity: frameCount
-      )!
-      buffer.frameLength = frameCount
-      
-      // Write the silent buffer
-      try audioFile.write(from: buffer)
+          // Create player from the file
+
+      keepalivePlayer = try AVAudioPlayer(contentsOf: tempURL)
+      keepalivePlayer?.volume = 0.01 // Very quiet
+      keepalivePlayer?.prepareToPlay()
     } // do
     catch
     {
-      print("Failed to create silent audio file: \(error)")
+      print("Failed to create keepalive player: \(error)")
     } // catch
-    
-    return silenceURL
-  } // func createSilentAudioFile
+
+  } // func createKeepalivePlayer
   
-
+  
   // -----------
-  // Start silent audio playback when timers are active
-
-  private func startSilentAudio()
+  // Play keepalive sound
+  
+  private func playKeepalive()
   {
-    // Ensure audio session is active before playing
-    do
+    if keepalivePlayer == nil
     {
-      try audioSession.setActive(true)
-    }
-    catch
-    {
-      print("Failed to activate audio session: \(error)")
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === WARNING: playKeepalive called but keepalivePlayer is nil")
+      return
     }
     
-    silentPlayer?.play()
-  } // func startSilentAudio
-  
-
-  // -----------
-  // Stop silent audio playback when no timers are active
-
-  private func stopSilentAudio()
-  {
-    silentPlayer?.stop()
-  } // func stopSilentAudio
+    keepalivePlayer?.currentTime = 0
+    let success = keepalivePlayer?.play() ?? false
+    
+    // Only log occasionally to avoid console spam
+    if Int(Date().timeIntervalSince1970) % 10 == 0
+    {
+      let timestamp = Date().formatted(date: .omitted, time: .standard)
+      print("[\(timestamp)] === Keepalive playing: \(success)")
+    }
+  } // func playKeepalive
   
 
   // -----------
@@ -237,12 +325,15 @@ class TimerManager: ObservableObject
       let oldTimer = timers[index]
       timers[index] = timer
       
-      // If timer is running and sound file changed, recreate the audio player
+          // If timer is running and sound file changed, recreate the audio player
+
       if timer.isRunning && oldTimer.soundFileName != timer.soundFileName
       {
         timerAudioPlayers.removeValue(forKey: timer.id)
       } // if
-      // If volume changed and timer is running, update the audio player volume
+
+          // If volume changed and timer is running, update the audio player volume
+
       else if timer.isRunning && oldTimer.volume != timer.volume
       {
         updateTimerVolume(timer)
@@ -280,13 +371,16 @@ class TimerManager: ObservableObject
   {
     var updatedTimers = timers
     
-    // Extract the items to move
+        // Extract the items to move
+
     let itemsToMove = source.reversed().map { updatedTimers.remove(at: $0) }.reversed()
     
-    // Calculate the adjusted destination index
+        // Calculate the adjusted destination index
+
     let adjustedDestination = destination - source.filter { $0 < destination }.count
     
-    // Insert items at the destination
+        // Insert items at the destination
+
     for (offset, item) in itemsToMove.enumerated()
     {
       updatedTimers.insert(item, at: adjustedDestination + offset)
@@ -304,22 +398,29 @@ class TimerManager: ObservableObject
   {
     var updatedTimer = timer
     updatedTimer.isRunning = true
-    updatedTimer.nextFireDate = Date().addingTimeInterval(timer.intervalSeconds)
+    updatedTimer.nextFireDate = 
+        Date().addingTimeInterval(timer.intervalSeconds)
     
-    // NOTE: Not scheduling notifications since Foundation timers run continuously
-    // in background with silent audio loop keeping app alive
-    // scheduleNotifications(for: updatedTimer)
+        // Cancel any existing notifications for this timer
+        // (in case there are any leftover from previous versions)
+
+    cancelNotifications(for: timer.id)
     
-    // Start silent audio FIRST to establish background audio session
-    // This must happen before the device goes to standby
-    updateSilentAudioState()
-    
-    // Play the sound IMMEDIATELY when starting to establish audio session
-    // This ensures iOS knows we're playing audio before device goes to standby
+        // Play the sound IMMEDIATELY when starting
+
     playSoundForTimer(updatedTimer)
-    
-    // Start an active timer for foreground/background sound playback
+
+        // Start an active timer that works in both foreground and
+        // background
+
     startActiveTimer(for: updatedTimer)
+    
+        // Start keepalive if in background
+
+    if isInBackground
+    {
+      startKeepalive()
+    } // if
     
     updateTimer(updatedTimer)
   } // func startTimer
@@ -334,66 +435,75 @@ class TimerManager: ObservableObject
     updatedTimer.isRunning = false
     updatedTimer.nextFireDate = nil
     
-    // Cancel all notifications for this timer
+        // Cancel all notifications for this timer
+
     cancelNotifications(for: timer.id)
     
-    // Stop the active timer
+        // Stop the active timer
+
     stopActiveTimer(for: timer.id)
     
-    // Clean up the audio player for this timer
+        // Clean up the audio player for this timer
+
     timerAudioPlayers[timer.id]?.stop()
     timerAudioPlayers.removeValue(forKey: timer.id)
-    
-    // Update silent audio state (stop if no timers running)
-    updateSilentAudioState()
-    
+
     updateTimer(updatedTimer)
+    
+        // Stop keepalive if no timers are running
+
+    if !timers.contains(where: { $0.isRunning })
+    {
+      stopKeepalive()
+    } // if
   } // func stopTimer
   
-
-
   
-
   // -----------
-  // Update silent audio playback based on whether any timers are running
-
-  private func updateSilentAudioState()
-  {
-    let hasRunningTimers = timers.contains { $0.isRunning }
-    
-    if hasRunningTimers
-    {
-      startSilentAudio()
-    } // if
-    else
-    {
-      stopSilentAudio()
-    } // else
-  } // func updateSilentAudioState
+  // Stop all running timers (called when app terminates)
   
+  func stopAllTimers()
+  {
+        // Stop each running timer
 
+    for timer in timers where timer.isRunning
+    {
+      stopTimer(timer)
+    } // for
+  } // func stopAllTimers
+  
+  
   // -----------
   // Start an active timer that fires in the app
 
   private func startActiveTimer(for timer: IntervalTimer)
   {
-    // Cancel existing timer if any
+        // Cancel existing timer if any
+
     stopActiveTimer(for: timer.id)
     
-    // Create a repeating timer
-    let newTimer = Timer.scheduledTimer(
-      withTimeInterval: timer.intervalSeconds,
-      repeats         : true
+        // Capture the timer ID to look up current state on each fire
+
+    let timerID = timer.id
+    
+        // Create a repeating timer
+
+    let newTimer = 
+          Timer.scheduledTimer(
+              withTimeInterval : timer.intervalSeconds,
+              repeats          : true
     )
     { [weak self] _ in
       Task
       {
-        await self?.handleTimerFire(timer)
+        await self?.handleTimerFireByID(timerID)
       } // Task
     } // Timer
     
-    // Store the timer
+        // Store the timer
+
     activeTimers[timer.id] = newTimer
+
   } // func startActiveTimer
   
 
@@ -408,22 +518,41 @@ class TimerManager: ObservableObject
   
 
   // -----------
-  // Handle when a timer fires
+  // Handle when a timer fires (by timer ID to ensure we use current state)
 
-  private func handleTimerFire(_ timer: IntervalTimer)
+  private func handleTimerFireByID(_ timerID: UUID)
   {
-    // Play the sound from file with volume
+        // Look up the current timer state from the array
+
+    guard let index = timers.firstIndex(where: { $0.id == timerID }) 
+    else
+    {
+      return
+    }
+    
+    let timer = timers[index]
+    
+        // Only fire if timer is still running
+
+    guard timer.isRunning 
+    else
+    {
+      return
+    }
+    
+        // Always play the timer sound (works in both foreground and
+        // background) This is legitimate audible content that the
+        // user expects
+
     playSoundForTimer(timer)
     
-    // Update the next fire date
-    if let index = timers.firstIndex(where: { $0.id == timer.id })
-    {
-      var updatedTimer = timers[index]
-      updatedTimer.nextFireDate = Date().addingTimeInterval(timer.intervalSeconds)
-      timers[index] = updatedTimer
-      saveTimers()
-    } // if
-  } // func handleTimerFire
+        // Update the next fire date
+
+    var updatedTimer = timer
+    updatedTimer.nextFireDate = Date().addingTimeInterval(timer.intervalSeconds)
+    timers[index] = updatedTimer
+    saveTimers()
+  } // func handleTimerFireByID
   
 
   // -----------
@@ -431,18 +560,21 @@ class TimerManager: ObservableObject
   
   private func prepareAudioPlayer(for timer: IntervalTimer)
   {
-    // Skip if player already exists
+        // Skip if player already exists
+
     if timerAudioPlayers[timer.id] != nil
     {
       return
     }
     
-    // First try custom sounds directory
+        // First try custom sounds directory
+
     var soundURL: URL? = CustomSoundManager.shared.getCustomSoundURL(
       fileName: timer.soundFileName
     )
     
-    // If not found in custom sounds, try bundle
+        // If not found in custom sounds, try bundle
+
     if soundURL == nil
     {
       soundURL = Bundle.main.url(
@@ -451,7 +583,8 @@ class TimerManager: ObservableObject
       )
     } // if
     
-    // Create a new player for this timer
+        // Create a new player for this timer
+
     if let soundURL = soundURL
     {
       do
@@ -478,17 +611,20 @@ class TimerManager: ObservableObject
 
   private func playSoundForTimer(_ timer: IntervalTimer)
   {
-    // Get or create the audio player for this timer
+        // Get or create the audio player for this timer
+
     if timerAudioPlayers[timer.id] == nil
     {
       prepareAudioPlayer(for: timer)
     } // if
     
-    // Update volume in case it changed
+        // Update volume in case it changed
+
     timerAudioPlayers[timer.id]?.volume = timer.volume
     
-    // Stop if currently playing, then play from the beginning
-    timerAudioPlayers[timer.id]?.stop()
+        // Play from the beginning
+        // Don't stop first - just reset position and play
+
     timerAudioPlayers[timer.id]?.currentTime = 0
     timerAudioPlayers[timer.id]?.play()
   } // func playSoundForTimer
@@ -499,16 +635,21 @@ class TimerManager: ObservableObject
 
   private func scheduleNotifications(for timer: IntervalTimer)
   {
-    // Cancel existing notifications first
+        // Cancel existing notifications first
+
     cancelNotifications(for: timer.id)
     
-    // print("=== Scheduling notifications for timer: \(timer.name) (ID: \(timer.id))")
+        // print("=== Scheduling notifications for timer: \(timer.name) (ID: \(timer.id))")
     
-    // Schedule multiple notifications (iOS limits, so we schedule for the next 24 hours)
+        // Schedule multiple notifications (iOS limits, so we schedule
+        // for the next 24 hours)
+
     let maxNotifications = 64 // iOS limit
     let secondsInDay: TimeInterval = 86400
-    let notificationsToSchedule = min(maxNotifications, Int(secondsInDay / timer.intervalSeconds))
-    // print("=== Will schedule \(notificationsToSchedule) notifications")
+    let notificationsToSchedule = 
+            min(maxNotifications, Int(secondsInDay / timer.intervalSeconds))
+
+        // print("=== Will schedule \(notificationsToSchedule) notifications")
     
     for i in 0..<notificationsToSchedule
     {
@@ -516,35 +657,37 @@ class TimerManager: ObservableObject
       content.title = timer.name
       content.body = "Timer alert"
       
-      // Use the custom sound file from the Sounds folder
-      // This will only play when app is fully suspended (not running in background)
-      content.sound = UNNotificationSound(named: UNNotificationSoundName(rawValue: timer.soundFileName))
+          // Use the custom sound file from the Sounds folder
+          // This will only play when app is fully suspended (not
+          // running in background)
+
+      content.sound = 
+        UNNotificationSound(
+            named: UNNotificationSoundName(rawValue: timer.soundFileName))
       
-      // Store the timer ID and sound filename in userInfo
+          // Store the timer ID and sound filename in userInfo
+
       content.userInfo = [
-        "timerID"      : timer.id.uuidString,
-        "soundFileName": timer.soundFileName
+        "timerID"       : timer.id.uuidString,
+        "soundFileName" : timer.soundFileName
       ]
       
-      let triggerDate = Date().addingTimeInterval(timer.intervalSeconds * Double(i + 1))
-      let dateComponents = Calendar.current.dateComponents(
-        [.year, .month, .day, .hour, .minute, .second],
-        from: triggerDate
-      )
-      let trigger = UNCalendarNotificationTrigger(
-        dateMatching: dateComponents,
-        repeats     : false
+      let timeInterval = timer.intervalSeconds * Double(i + 1)
+      let trigger = UNTimeIntervalNotificationTrigger(
+        timeInterval : timeInterval,
+        repeats      : false
       )
       
-      let request = UNNotificationRequest(
-        identifier: "\(timer.id.uuidString)-\(i)",
-        content   : content,
-        trigger   : trigger
+      let request = 
+             UNNotificationRequest(
+                identifier : "\(timer.id.uuidString)-\(i)",
+                content    : content,
+                trigger    : trigger
       )
       
-      // if i < 3 {
-      //   print("=== Notification \(i): scheduled for \(triggerDate)")
-      // }
+          // if i < 3 {
+          //   print("=== Notification \(i): scheduled for \(triggerDate)")
+          // }
       
       notificationCenter.add(request)
       { error in
@@ -573,7 +716,9 @@ class TimerManager: ObservableObject
         .filter { $0.identifier.hasPrefix(timerID.uuidString) }
         .map { $0.identifier }
       
-      center.removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+      center.removePendingNotificationRequests(
+                 withIdentifiers: identifiersToRemove)
+
     } // getPendingNotificationRequests
   } // func cancelNotifications
   
@@ -603,8 +748,10 @@ class TimerManager: ObservableObject
     {
       timers = decoded
       
-      // Stop all running timers on app launch
-      // This ensures timers don't remain active after app termination
+          // Stop all running timers on app launch
+          // This ensures timers don't remain active after app
+          // termination
+
       for index in timers.indices
       {
         if timers[index].isRunning
@@ -614,8 +761,10 @@ class TimerManager: ObservableObject
         }
       }
       
-      // Save the updated state
+          // Save the updated state
+
       saveTimers()
+
     } // if
   } // func loadTimers
 

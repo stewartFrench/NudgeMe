@@ -25,40 +25,47 @@ class ImportManager: ObservableObject
 
   func handleIncomingURL(_ url: URL)
   {
-    // print("=== NudgeMe: Received URL: \(url)")
-    // print("=== URL path: \(url.path)")
-    // print("=== URL is file: \(url.isFileURL)")
+        // print("=== NudgeMe: Received URL: \(url)")
+        // print("=== URL path: \(url.path)")
+        // print("=== URL is file: \(url.isFileURL)")
     
-    // Check if it's an audio file
+        // Check if it's an audio file
+
     let fileExtension = url.pathExtension.lowercased()
     let audioExtensions = ["caf", "m4a", "mp3", "wav", "aiff", "aifc"]
     
-    // print("=== File extension: \(fileExtension)")
+        // print("=== File extension: \(fileExtension)")
     
     guard audioExtensions.contains(fileExtension) else
     {
-      // print("=== ERROR: Not an audio file: \(fileExtension)")
+          // print("=== ERROR: Not an audio file: \(fileExtension)")
+
       self.importMessage = "Not a supported audio file format: \(fileExtension)"
       self.importSuccess = false
       self.showImportAlert = true
       return
     } // guard
     
-    // print("=== Attempting to import audio file...")
+        // print("=== Attempting to import audio file...")
     
-    // Import the sound file
+        // Import the sound file
+
     let result = CustomSoundManager.shared.importSound(from: url)
     
     switch result
     {
       case .success(let fileName):
-        // print("=== SUCCESS: Imported sound: \(fileName)")
+
+            // print("=== SUCCESS: Imported sound: \(fileName)")
+
         self.importMessage = "Successfully imported \(fileName)\n\nTap 'Refresh Sound List' in the timer editor to see it."
         self.importSuccess = true
         self.showImportAlert = true
         
       case .failure(let error):
-        // print("=== ERROR: Failed to import sound: \(error.localizedDescription)")
+
+            // print("=== ERROR: Failed to import sound: \(error.localizedDescription)")
+
         self.importMessage = error.localizedDescription
         self.importSuccess = false
         self.showImportAlert = true
@@ -78,7 +85,8 @@ struct NudgeMeApp: App
   
   init()
   {
-    // Set up URL handler
+        // Set up URL handler
+
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1)
     {
       AppDelegate.shared?.onURLReceived =
@@ -108,33 +116,42 @@ struct NudgeMeApp: App
 
 class SceneDelegate: NSObject, UIWindowSceneDelegate
 {
+
+  // -----------
   func scene(
-    _ scene: UIScene,
-    willConnectTo session: UISceneSession,
-    options connectionOptions: UIScene.ConnectionOptions
+                      _ scene : UIScene,
+        willConnectTo session : UISceneSession,
+    options connectionOptions : UIScene.ConnectionOptions
   )
   {
-    // Check if launched with a URL
+        // Check if launched with a URL
+
     if let urlContext = connectionOptions.urlContexts.first
     {
-      // print("=== SceneDelegate: Launched with URL: \(urlContext.url)")
+        // print("=== SceneDelegate: Launched with URL: \(urlContext.url)")
+
       AppDelegate.shared?.onURLReceived?(urlContext.url)
-    }
-  }
+    } // if
+  } // func scene
   
+
+  // -----------
   func scene(
-    _ scene: UIScene,
-    openURLContexts URLContexts: Set<UIOpenURLContext>
+                        _ scene : UIScene,
+    openURLContexts URLContexts : Set<UIOpenURLContext>
   )
   {
-    // Handle URL when app is already running
+        // Handle URL when app is already running
+
     if let urlContext = URLContexts.first
     {
-      // print("=== SceneDelegate: Received URL: \(urlContext.url)")
+        // print("=== SceneDelegate: Received URL: \(urlContext.url)")
+
       AppDelegate.shared?.onURLReceived?(urlContext.url)
-    }
-  }
-}
+    } // if
+  } // func scene
+} // class SceneDelegate
+
 
 
 // ----------------------------------------------
@@ -149,40 +166,44 @@ class AppDelegate: NSObject, UIApplicationDelegate
   
   // -----------
   func application(
-    _ application: UIApplication,
-    configurationForConnecting connectingSceneSession: UISceneSession,
-    options: UIScene.ConnectionOptions
+                _ application : UIApplication,
+    configurationForConnecting connectingSceneSession : UISceneSession,
+                      options : UIScene.ConnectionOptions
   ) -> UISceneConfiguration
   {
     let configuration = UISceneConfiguration(
-      name: nil,
-      sessionRole: connectingSceneSession.role
+             name : nil,
+      sessionRole : connectingSceneSession.role
     )
     if connectingSceneSession.role == .windowApplication
     {
       configuration.delegateClass = SceneDelegate.self
-    }
+    } // if
     return configuration
-  }
+  } // func application
   
+
+  // -----------
   func application(
-                                 _ application : UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+                                  _ application : UIApplication,
+    didFinishLaunchingWithOptions launchOptions : [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool
   {
-    // print("=== AppDelegate: didFinishLaunchingWithOptions called")
+        // print("=== AppDelegate: didFinishLaunchingWithOptions called")
+
     AppDelegate.shared = self
     
-    // Set up notification delegate
+        // Set up notification delegate
+
     UNUserNotificationCenter.current().delegate = notificationDelegate
     
-    // Enable background audio (for notification sounds)
+        // Enable background audio (for notification sounds)
     do
     {
       try AVAudioSession.sharedInstance().setCategory(
         .playback,
-        mode   : .default,
-        options: [.mixWithOthers]
+        mode    : .default,
+        options : [.mixWithOthers]
       )
       try AVAudioSession.sharedInstance().setActive(true)
     } // do
@@ -190,24 +211,37 @@ class AppDelegate: NSObject, UIApplicationDelegate
     {
       print("Failed to set up audio session: \(error)")
     } // catch
-    
-    // print("=== AppDelegate: Setup complete")
+
+        // print("=== AppDelegate: Setup complete")
+
     return true
   } // func application
   
+
+  // -----------
   // Called when app is about to terminate
+  
   func applicationWillTerminate(_ application: UIApplication)
   {
-    // Cancel all pending notifications since timers won't be running
-    UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-  } // func applicationWillTerminate
+        // Stop all running timers
 
+    Task { @MainActor in
+      TimerManager.shared.stopAllTimers()
+    }
+
+        // Cancel all pending notifications since timers won't be
+        // running
+
+    UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
+  } // func applicationWillTerminate
 } // class AppDelegate
 
 
 
 // ----------------------------------------------
 // Helper view to host the main content and show import alerts
+
 struct ContentHostView: View
 {
   @Binding var showImportAlert: Bool

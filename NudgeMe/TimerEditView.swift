@@ -56,7 +56,7 @@ struct TimerEditView: View
     {
       _name = State(initialValue: "")
       _hours = State(initialValue: 0)
-      _minutes = State(initialValue: 1)
+      _minutes = State(initialValue: 0)
       _seconds = State(initialValue: 0)
       // Default to first available sound
       _selectedSoundFileName = State(initialValue: sounds.first?.fileName ?? "default")
@@ -119,23 +119,43 @@ struct TimerEditView: View
         Section("Sound")
         {
 
-          Picker(
-            "Alert Sound",
-            selection: $selectedSoundFileName
-          )
+          HStack
           {
-            ForEach(
-              availableSounds,
-              id: \.id
-            )
-            { sound in
-              Text(sound.name).tag(sound.fileName)
-            } // ForEach
-          } // Picker
-          .onChange( of: selectedSoundFileName )
-          {
-            previewSound()
-          } // onChange
+            Text("Alert Sound")
+            Spacer()
+            Menu
+            {
+              ForEach(
+                availableSounds,
+                id: \.id
+              )
+              { sound in
+                Button(action: {
+                  selectedSoundFileName = sound.fileName
+                  previewSound()
+                })
+                {
+                  HStack
+                  {
+                    Text(sound.name)
+                    if selectedSoundFileName == sound.fileName
+                    {
+                      Spacer()
+                      Image(systemName: "checkmark")
+                    } // if
+                  } // HStack
+                } // Button
+              } // ForEach
+            } // Menu
+            label:
+            {
+              Text(
+                 availableSounds.first(
+                    where: { $0.fileName == selectedSoundFileName })?.name ?? "Select Sound")
+              .foregroundStyle(.blue)
+
+            } // label
+          } // HStack
           
 
           Button("Import Custom Sound from Files")
